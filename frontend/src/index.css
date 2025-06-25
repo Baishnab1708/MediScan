@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-family-base: 'Manrope', 'Noto Sans', sans-serif;
+}
+
+body {
+  font-family: var(--font-family-base);
+  @apply text-slate-800;
+}
+
+.dark body {
+  @apply bg-gray-900 text-gray-100;
+}
+
+/* Animation for checkpoints */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.checkpoint-anim {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Progress bar animation */
+.progress-bar-container {
+  @apply w-full bg-green-100 rounded-lg overflow-hidden h-5 relative;
+}
+
+.dark .progress-bar-container {
+  @apply bg-gray-700;
+}
+
+.progress-bar {
+  @apply h-full bg-green-600 flex items-center justify-center text-white text-xs transition-all duration-500;
+}
+
+.dark .progress-bar {
+  @apply bg-green-500;
+}
+
+.checkpoints {
+  @apply flex justify-between absolute w-full top-[-25px] left-0 text-xs text-gray-600 px-3;
+}
+
+.dark .checkpoints {
+  @apply text-gray-300;
+}
+
+.checkpoint {
+  @apply relative flex flex-col items-center;
+}
+
+.checkpoint::before {
+  content: "";
+  @apply w-2 h-2 bg-gray-400 rounded-full absolute top-5;
+}
+
+.checkpoint.active::before {
+  @apply bg-green-600;
+}
+
+.dark .checkpoint.active::before {
+  @apply bg-green-500;
+}
+
+.checkpoint.active {
+  @apply text-green-700;
+}
+
+.dark .checkpoint.active {
+  @apply text-green-400;
+}
+
+/* Pill decorations */
+.pill-decoration {
+  @apply w-2.5 h-5 bg-green-200 rounded opacity-70 mx-0.5;
+}
+
+.dark .pill-decoration {
+  @apply bg-green-900;
+}
+
+.plus-decoration {
+  @apply w-4 h-4 relative mx-1 opacity-60;
+}
+
+.plus-decoration::before,
+.plus-decoration::after {
+  content: '';
+  @apply absolute bg-green-300 rounded-sm;
+}
+
+.dark .plus-decoration::before,
+.dark .plus-decoration::after {
+  @apply bg-green-800;
+}
+
+.plus-decoration::before {
+  @apply w-full h-0.5 top-1/2 left-0 -translate-y-1/2;
+}
+
+.plus-decoration::after {
+  @apply w-0.5 h-full top-0 left-1/2 -translate-x-1/2;
+}

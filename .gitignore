@@ -1,0 +1,31 @@
+# Python-related
+*.pyc
+__pycache__/
+.venv/
+env/
+venv/
+
+# Environment variables
+.env
+
+# VSCode settings
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node.js (Frontend)
+node_modules/
+frontend/node_modules/
+
+# Log files
+*.log
+
+# Temporary uploads or cache
+backend/temp_uploads/
+
+# Dependency lock files (optional, if you want to ignore them)
+# package-lock.json
+# yarn.lock
