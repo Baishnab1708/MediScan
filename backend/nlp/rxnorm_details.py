@@ -56,7 +56,7 @@ class RxNormDetailsValidator:
                         elif 'strength' in prop_name.lower():
                             composition['strength'] = prop_value
 
-            # Get ingredients with strengths
+            # Get ingredients with strengths (limited to 20)
             ing_url = f"{self.base_url}/rxcui/{rxcui}/allrelated.json"
             ing_response = self.session.get(ing_url, timeout=10)
 
@@ -69,12 +69,16 @@ class RxNormDetailsValidator:
                         if group.get('tty') in ['IN', 'PIN', 'MIN']:
                             if 'conceptProperties' in group:
                                 for concept in group['conceptProperties']:
+                                    if len(composition['ingredients']) >= 20:
+                                        break
                                     ingredient = {
                                         'name': concept.get('name', ''),
                                         'rxcui': concept.get('rxcui', '')
                                     }
                                     if ingredient['name'] and ingredient not in composition['ingredients']:
                                         composition['ingredients'].append(ingredient)
+                        if len(composition['ingredients']) >= 20:
+                            break
 
             time.sleep(0.2)
         except Exception as e:
@@ -159,6 +163,10 @@ class RxNormDetailsValidator:
             detailed_comp = self.get_detailed_composition(rxcui)
             details['composition'].update(detailed_comp)
 
+            # Limit composition ingredients to 20
+            if 'ingredients' in details['composition']:
+                details['composition']['ingredients'] = details['composition']['ingredients'][:20]
+
             # Get related concepts using allrelated endpoint
             related_url = f"{self.base_url}/rxcui/{rxcui}/allrelated.json"
             related_response = self.session.get(related_url, timeout=10)
@@ -169,17 +177,27 @@ class RxNormDetailsValidator:
                     concept_groups = related_data['allRelatedGroup']['conceptGroup']
 
                     for group in concept_groups:
+                        # Skip if both brand and generic lists are already full
+                        if len(details['brand_names']) >= 20 and len(details['generic_names']) >= 20:
+                            break
+
                         tty = group.get('tty', '')
                         if 'conceptProperties' in group:
                             concepts = group['conceptProperties']
 
                             for concept in concepts:
+                                # Break early if both lists are full
+                                if len(details['brand_names']) >= 20 and len(details['generic_names']) >= 20:
+                                    break
+
                                 name = concept.get('name', '').strip()
                                 if name:
-                                    if tty in ['BN', 'BPCK', 'SBD', 'SBDC']:  # Brand names
+                                    if tty in ['BN', 'BPCK', 'SBD', 'SBDC'] and len(
+                                            details['brand_names']) < 20:  # Brand names
                                         if name not in details['brand_names']:
                                             details['brand_names'].append(name)
-                                    elif tty in ['IN', 'PIN', 'MIN']:  # Generic ingredients
+                                    elif tty in ['IN', 'PIN', 'MIN'] and len(
+                                            details['generic_names']) < 20:  # Generic ingredients
                                         if name not in details['generic_names']:
                                             details['generic_names'].append(name)
                                     elif tty in ['DF']:  # Dosage forms
@@ -198,8 +216,8 @@ class RxNormDetailsValidator:
                 details['mechanism_of_action'] = clinical_info.get('mechanism_of_action', '')
                 details['contraindications'] = clinical_info.get('contraindications', [])
 
-            # Try alternative approach for ingredients if empty
-            if not details['generic_names']:
+            # Try alternative approach for ingredients if empty (but still respect the 20 limit)
+            if len(details['generic_names']) < 20:
                 ing_url = f"{self.base_url}/rxcui/{rxcui}/allProperties.json?prop=all"
                 ing_response = self.session.get(ing_url, timeout=10)
 
@@ -207,6 +225,8 @@ class RxNormDetailsValidator:
                     ing_data = ing_response.json()
                     if 'propConceptGroup' in ing_data and 'propConcept' in ing_data['propConceptGroup']:
                         for prop in ing_data['propConceptGroup']['propConcept']:
+                            if len(details['generic_names']) >= 20:
+                                break
                             if prop.get('propName') == 'RxNorm Name':
                                 name = prop.get('propValue', '').strip()
                                 if name and name not in details['generic_names']:
@@ -217,8 +237,14 @@ class RxNormDetailsValidator:
                                         details['indications'] = clinical_info.get('indications', [])
                                         details['side_effects'] = clinical_info.get('side_effects', [])
                                         details['mechanism_of_action'] = clinical_info.get('mechanism_of_action', '')
+                                    # Break after adding one to avoid too many
+                                    break
 
             time.sleep(0.3)  # Rate limiting
+
+            # Final safety check - trim to 20 items max
+            details['brand_names'] = details['brand_names'][:20]
+            details['generic_names'] = details['generic_names'][:20]
 
         except Exception as e:
             print(f"Error fetching details for RxCUI {rxcui}: {e}")

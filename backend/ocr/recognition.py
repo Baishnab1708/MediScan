@@ -4,10 +4,41 @@ import cv2
 from app.core.config import settings
 
 
+def get_optimal_jpeg_quality(image):
+    """
+    Determine optimal JPEG quality based on image characteristics to balance
+    file size and OCR accuracy.
+    """
+    # Test different quality levels to find optimal
+    height, width = image.shape[:2]
+    pixel_count = height * width
+
+    # Start with different qualities based on image size
+    if pixel_count > 2000000:  # Large images
+        test_qualities = [75, 80, 85]
+    elif pixel_count > 1000000:  # Medium images
+        test_qualities = [80, 85, 90]
+    else:  # Small images
+        test_qualities = [85, 90, 95]
+
+    target_size_bytes = 3.8 * 1024 * 1024  # 3.8MB target
+
+    for quality in test_qualities:
+        _, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, quality])
+        size_bytes = len(buffer.tobytes())
+
+        if size_bytes <= target_size_bytes:
+            print(f"Selected JPEG quality: {quality}% (Size: {size_bytes / 1024 / 1024:.2f}MB)")
+            return quality
+
+    # If all qualities are too large, use the lowest
+    print(f"Using minimum quality: {test_qualities[0]}%")
+    return test_qualities[0]
+
+
 def recognize_text(image):
     """
-    Send image to Azure Computer Vision API for OCR with minimal conversion.
-    Directly encodes the image with high quality to preserve details.
+    Send image to Azure Computer Vision API for OCR with dynamic quality optimization.
     """
     subscription_key = settings.AZURE_SUBSCRIPTION_KEY
     endpoint = settings.AZURE_ENDPOINT
@@ -29,13 +60,23 @@ def recognize_text(image):
     }
 
     try:
-        # Encode image with highest quality to preserve details
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+        # Get optimal JPEG quality for this image
+        optimal_quality = get_optimal_jpeg_quality(image)
+
+        # Encode image with optimal quality
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), optimal_quality]
         success, buffer = cv2.imencode(".jpg", image, encode_param)
         if not success:
             raise ValueError("Failed to encode image")
 
         image_bytes = buffer.tobytes()
+
+        # Final size check
+        size_mb = len(image_bytes) / (1024 * 1024)
+        print(f"Sending image: {size_mb:.2f}MB")
+
+        if size_mb > 4.0:
+            raise ValueError(f"Image size {size_mb:.2f}MB exceeds API limit of 4MB")
 
         # Send the API request
         print("Sending image to Azure...")

@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 
-// Checkpoints: durations sum to 20s (20,000ms)
+
 const checkpoints = [
-  { id: 'checkpoint-ocr', name: 'OCR', duration: 7000 },        // 25%
-  { id: 'checkpoint-analysis', name: 'Analysis', duration: 8000 }, // 40% (ends at 65%)
-  { id: 'checkpoint-extract', name: 'Extract', duration: 6000 },  // 20%
-  { id: 'checkpoint-details', name: 'Details', duration: 6000 }, // 15%
+  { id: 'checkpoint-ocr', name: 'OCR', duration: 10000 },        
+  { id: 'checkpoint-analysis', name: 'Analysis', duration: 10000 }, 
+  { id: 'checkpoint-extract', name: 'Extract', duration: 10000 },  
+  { id: 'checkpoint-details', name: 'Details', duration: 10000 }, 
 ];
 
 const TOTAL_DURATION = 20000;

@@ -4,6 +4,7 @@ import json
 from ocr.preprocessing import process_image
 from ocr.recognition import recognize_text
 from ocr.pdf_extractor import extract_text_from_pdf
+from ocr.preprocessing import validate_image_for_api
 from nlp.corrections import OCRCorrector
 from nlp.rxnorm_validator import RxNormValidator
 from nlp.extractor import OpenRouterExtractor
@@ -29,6 +30,9 @@ def process_file(file_path):
         enhanced_image = process_image(file_path)
         if enhanced_image is None:
             print(f"Error: Failed to process image {file_path}")
+            return None, None
+        if not validate_image_for_api(enhanced_image):
+            print(f"Error: Processed image doesn't meet API requirements")
             return None, None
 
         # Step 2: OCR Recognition
@@ -130,7 +134,7 @@ def main():
     endpoint = "https://medicineprescriptionreader.cognitiveservices.azure.com/"
 
     # Image path
-    img_path = "ocr/img_3.png"  # Update this to your image path
+    img_path = "ocr/prep.jpg"  # Update this to your image path
 
     # Process the file
     text, medicines = process_file(img_path)
