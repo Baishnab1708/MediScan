@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import gc  
 from ocr.preprocessing import process_image
 from ocr.recognition import recognize_text
 from ocr.pdf_extractor import extract_text_from_pdf
@@ -9,7 +10,6 @@ from nlp.corrections import OCRCorrector
 from nlp.rxnorm_validator import RxNormValidator
 from nlp.extractor import OpenRouterExtractor
 from nlp.rxnorm_details import RxNormDetailsValidator
-
 
 
 def process_file(file_path):
@@ -23,6 +23,8 @@ def process_file(file_path):
         print("Detected PDF file. Skipping image preprocessing and correction.")
         print("Step 2: Recognizing text from PDF with Azure OCR...")
         final_text = extract_text_from_pdf(file_path)
+        # Force garbage collection after PDF processing
+        gc.collect()
 
     else:
         # Step 1: Image preprocessing
@@ -33,11 +35,19 @@ def process_file(file_path):
             return None, None
         if not validate_image_for_api(enhanced_image):
             print(f"Error: Processed image doesn't meet API requirements")
+            # Clean up enhanced_image before returning
+            del enhanced_image
+            gc.collect()
             return None, None
 
         # Step 2: OCR Recognition
         print("Step 2: Recognizing text with Azure OCR...")
         recognized_text = recognize_text(enhanced_image)
+
+        # Delete enhanced_image as it's no longer needed
+        del enhanced_image
+        gc.collect()
+
         if not recognized_text:
             print(f"Error: Failed to recognize text in image {file_path}")
             return None, None
@@ -51,6 +61,10 @@ def process_file(file_path):
         print("after correction:")
         print(final_text)
 
+        # Clean up after correction
+        del recognized_text
+        del corrector
+        gc.collect()
 
     # Step 4: Medicine extraction using OpenRouter API
     print("Step 4: Extracting medicine names using OpenRouter API...")
@@ -58,15 +72,29 @@ def process_file(file_path):
     processed_results = extractor.extract_medicine_names(final_text)
     print(processed_results)
 
+    # Clean up extractor
+    del extractor
+    gc.collect()
+
     # Step 5: Validate medicines with RxNorm API
     print("Step 5: Validating medicines with RxNorm API...")
     validator = RxNormValidator()
     validated_medicines = validator.validate_medicines(processed_results)
 
+    # Clean up after validation
+    del processed_results
+    del validator
+    gc.collect()
+
     # Step 6: Get detailed medicine information
     print("Step 6: Fetching detailed medicine information...")
     details_validator = RxNormDetailsValidator()
-    detailed_medicines = details_validator.validate_medicines_with_details(validated_medicines)
+    detailed_medicines =  details_validator.validate_medicines_with_details(validated_medicines)
+
+    # Clean up after getting details
+    del validated_medicines
+    del details_validator
+    gc.collect()
 
     # Print time taken
     elapsed_time = time.time() - start_time
@@ -129,13 +157,7 @@ def process_file(file_path):
 
 
 def main():
-    # Azure Computer Vision credentials
-    subscription_key = "5UiemOohZ2Ln2KqSRyMut4RYspnHxD2Xs98UnU1CAbBOBACRDgsQJQQJ99BEACGhslBXJ3w3AAAFACOGUaeZ"
-    endpoint = "https://medicineprescriptionreader.cognitiveservices.azure.com/"
-
-    # Image path
-    img_path = "ocr/prep.jpg"  # Update this to your image path
-
+    
     # Process the file
     text, medicines = process_file(img_path)
 
@@ -187,9 +209,20 @@ def main():
             print(f"- detailed_medicines.json: Complete medicine data with details")
             print(f"- medicine_summary.json: Clean summary of validated medicines")
 
+            # Clean up final variables
+            del summary
+            gc.collect()
+
         except Exception as e:
             print(f"Error saving results: {e}")
+
+        finally:
+            # Final cleanup
+            del text, medicines
+            gc.collect()
 
 
 if __name__ == "__main__":
     main()
+    # Final garbage collection at script end
+    gc.collect()

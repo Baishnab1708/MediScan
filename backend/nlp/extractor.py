@@ -17,23 +17,25 @@ class OpenRouterExtractor:
         self.endpoint = settings.OPENROUTER_BASE_URL
         self.model = settings.OPENROUTER_MODEL
         self.base_prompt = """
-Provided below is a scanned text from which you need to extract only the medicine names along with their dosages.
+Extract only valid medicine names along with their dosages from the given text.
 
-Perform the following tasks:
+Strictly follow these rules:
+1. Ignore all unrelated content such as names, addresses, contact info, instructions, manufacturer details, pharmacy details, and appointment-related data.
+2. Discard words or phrases that are likely noise: single words or 2–4 letter tokens that do not resemble medicines or dosages.
+3. Only include items that clearly indicate a medicine and optionally its strength or dosage, e.g., “Paracetamol 500mg”, “Insulin 30/70”, “Amoxicillin 250 mg/5ml”.
+4. Correct minor OCR errors or misspellings if the intended medicine is clear.
+5. Be 90% certain before including an item. If unsure, discard it.
+6. Return output as a JSON array. Each entry must include:
+   - "name": cleaned and corrected medicine name with dosage.
+   - "position": approximate location like "line 4" or "paragraph 2".
 
-Accurately identify and extract names of medicines, including their dosages such as mg/ml/unit when present.
-Ignore unrelated information like instructions, manufacturer’s names, or other entities not relevant to medicine names.
-Correct any misspellings in medicine names when obvious, ensuring only valid names are included.
-Return the results in JSON array format as illustrated in the example. Each object within the array must contain:
-“name”: the exact name of the medicine with its dosage.
-“position”: the location within the text where the medicine information appears (e.g., “line 1”, “paragraph 2”).
-Output Format Example:
+Example output:
 [
-{“name”: “Paracetamol 500mg”, “position”: “line 3”},
-{“name”: “Amoxicillin 250mg”, “position”: “paragraph 2”}
+  {"name": "Paracetamol 500mg", "position": "line 3"},
+  {"name": "Ciprofloxacin 250mg", "position": "paragraph 1"}
 ]
-Enhance accuracy by understanding the context to determine whether the medicine information resides in a line or paragraph.
-The text to analyze is surrounded by triple quotes below:
+
+Text to analyze is given below:
 """
 
     def _make_request(self, prompt, retries=3, delay=2):

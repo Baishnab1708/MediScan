@@ -13,6 +13,9 @@ from extract import process_file
 
 router = APIRouter(prefix="/medicine", tags=["medicine"])
 
+# Chunk size for streaming (64KB)
+CHUNK_SIZE = 64 * 1024
+
 
 def validate_file(file: UploadFile) -> bool:
     """Validate uploaded file"""
@@ -40,19 +43,8 @@ async def extract_medicines(
             detail=f"Invalid file type. Allowed: {', '.join(settings.ALLOWED_EXTENSIONS)}"
         )
 
-    # Check file size
-    contents = await file.read()
-    if len(contents) > settings.MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File too large. Maximum size: {settings.MAX_FILE_SIZE // (1024 * 1024)}MB"
-        )
-
-    # Reset file pointer
-    await file.seek(0)
-
     # Create temporary file
-    temp_file = None
+    temp_file_path = None
     try:
         # Create temp directory if it doesn't exist
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -63,10 +55,24 @@ async def extract_medicines(
                 suffix=Path(file.filename).suffix.lower(),
                 dir=settings.UPLOAD_DIR
         ) as temp_file:
-            # Write uploaded file content
-            content = await file.read()
-            temp_file.write(content)
             temp_file_path = temp_file.name
+
+            # Stream file content in chunks to avoid loading entire file in memory
+            total_size = 0
+            while True:
+                chunk = await file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+
+                # Check file size limit
+                total_size += len(chunk)
+                if total_size > settings.MAX_FILE_SIZE:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File too large. Maximum size: {settings.MAX_FILE_SIZE // (1024 * 1024)}MB"
+                    )
+
+                temp_file.write(chunk)
 
         # Process the file using your extraction pipeline
         start_time = time.time()
@@ -91,6 +97,7 @@ async def extract_medicines(
         # Format the response
         medicines = []
         for med_data in detailed_medicines:
+            details = med_data.get("details") or {}
             medicine = ExtractedMedicine(
                 original_name=med_data.get("original", ""),
                 matched_name=med_data.get("matched", ""),
@@ -98,7 +105,7 @@ async def extract_medicines(
                 rxnorm_validated=med_data.get("rxnorm_validated", False),
                 rxcui=med_data.get("rxcui", ""),
                 rxnorm_score=med_data.get("rxnorm_score", 0.0),
-                details=med_data.get("details", {})
+                details=details
             )
             medicines.append(medicine)
 
@@ -115,6 +122,9 @@ async def extract_medicines(
             total_medicines_found=len([m for m in medicines if m.matched_name])
         )
 
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -123,7 +133,7 @@ async def extract_medicines(
 
     finally:
         # Clean up temporary file
-        if temp_file and os.path.exists(temp_file_path):
+        if temp_file_path and os.path.exists(temp_file_path):
             try:
                 os.unlink(temp_file_path)
             except Exception as e:

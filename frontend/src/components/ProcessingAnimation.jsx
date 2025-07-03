@@ -9,7 +9,7 @@ const checkpoints = [
   { id: 'checkpoint-details', name: 'Details', duration: 10000 }, 
 ];
 
-const TOTAL_DURATION = 20000;
+const TOTAL_DURATION = 40000;
 const HOLD_PERCENT = 97; // hold at 97% until backend responds
 
 export default function ProcessingAnimation({ onComplete, backendResponseReceived }) {
